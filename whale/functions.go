@@ -418,6 +418,35 @@ func json_to_xml_v1(ctx *EngineContext, scope *Scope, ins *tp.Instruction, args 
 	return
 }
 
+func json_v1() {
+	// unmarshal the json
+	jsonSrc := scope.Value.(string)
+	var jsonVal interface{}
+	err := json.Unmarshal([]byte(jsonSrc), &jsonVal)
+	if err != nil {
+		// invalid JSON -- log an error message and keep going
+		ctx.Debugger.LogErrorMessage(ctx.MessagePath, "json_decoding err: %s", err.Error())
+		returnValue = "null"
+		return
+	}
+	// create a scope and run the supplied block on it
+	newScope := &Scope{Value: jsonVal}
+	for _, childInstr := range ins.Children {
+		ctx.RunInstruction(newScope, childInstr)
+	}
+	// serialize and return
+	jsonOut, err := json.MarshalIndent(jsonVal, "", "  ")
+	if err != nil {
+		// invalid JSON -- log an error message and keep going
+		ctx.Debugger.LogErrorMessage(ctx.MessagePath, "json_encoding err: %s", err.Error())
+		returnValue = "null"
+		return
+	}
+	scope.Value = string(jsonOut)
+	returnValue = string(jsonOut)
+	return
+}
+
 func to_json_v1_Text(ctx *EngineContext, scope *Scope, ins *tp.Instruction, args []interface{}) (returnValue interface{}) {
 	node := scope.Value.(xml.Node)
 	xpathStr := args[0].(string)
