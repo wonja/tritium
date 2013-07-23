@@ -1316,3 +1316,25 @@ func json_pairs_v1(ctx *EngineContext, scope *Scope, ins *tp.Instruction, args [
 	returnValue = ""
 	return
 }
+
+// Accesses the name of a json.Object.Pair
+func json_pair_name_v1(ctx *EngineContext, scope *Scope, ins *tp.Instruction, args []interface{}) (returnValue interface{}) {
+	jsonPair := scope.Value.(Pair)
+	nameScope := &Scope{Value: jsonPair.Name}
+	for _, childInstr := range ins.Children {
+		ctx.RunInstruction(nameScope, childInstr)
+	}
+	returnValue = nameScope.Value
+	return
+}
+
+// Accesses the value of a json.Object.Pair
+func json_pair_value_v1(ctx *EngineContext, scope *Scope, ins *tp.Instruction, args []interface{}) (returnValue interface{}) {
+	jsonPair := scope.Value.(Pair)
+	valueScope := &Scope{Value: jsonPair.Value}
+	for _, childInstr := range ins.Children {
+		ctx.RunInstruction(valueScope, childInstr)
+	}
+	returnValue = valueScope.Value
+	return
+}
