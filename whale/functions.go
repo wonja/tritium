@@ -1276,7 +1276,7 @@ func json_v1(ctx *EngineContext, scope *Scope, ins *tp.Instruction, args []inter
 
 // Attempts to select/cast a JSON scope to an object. Does nothing if it fails.
 func json_object_v1(ctx *EngineContext, scope *Scope, ins *tp.Instruction, args []interface{}) (returnValue interface{}) {
-	// check the type of object
+	// check the type
 	switch scope.Value.(type) {
 	case map[string]interface{}:
 		// if it's an object, cast it and run the supplied block on it
@@ -1336,5 +1336,40 @@ func json_pair_value_v1(ctx *EngineContext, scope *Scope, ins *tp.Instruction, a
 		ctx.RunInstruction(valueScope, childInstr)
 	}
 	returnValue = valueScope.Value
+	return
+}
+
+// Attempts to select/cast a JSON scope to an array. Does nothing if it fails.
+func json_array_v1(ctx *EngineContext, scope *Scope, ins *tp.Instruction, args []interface{}) (returnValue interface{}) {
+	// check the type
+	switch scope.Value.(type) {
+	case []interface{}:
+		// if it's an array, cast it and run the supplied block on it
+		jsonArray := scope.Value.([]interface{})
+		newScope := &Scope{Value: jsonArray}
+		for _, childInstr := range ins.Children {
+			ctx.RunInstruction(newScope, childInstr)
+		}
+		returnValue = scope.Value
+	default:
+		// do nothing if it isn't an array
+		returnValue = ""
+		return
+	}
+	return
+}
+
+// Iterates over all elements in a JSON array. Called inside of a
+// json.Array scope.
+func json_elements_v1(ctx *EngineContext, scope *Scope, ins *tp.Instruction, args []interface{}) (returnValue interface{}) {
+	jsonArray := scope.Value.([]interface{})
+	for i, val := range jsonArray {
+		elemScope := &Scope{Value: val}
+		for _, childInstr := range ins.Children {
+			ctx.RunInstruction(elemScope, childInstr)
+		}
+		jsonArray[i] = elemScope.Value
+	}
+	returnValue = ""
 	return
 }
