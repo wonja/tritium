@@ -1293,3 +1293,26 @@ func json_object_v1(ctx *EngineContext, scope *Scope, ins *tp.Instruction, args 
 	}
 	return
 }
+
+// Interstitial struct for representing the key/value pairs in an object. Will
+// relocate this eventually (yeah, right; believe it when it happens!).
+type Pair struct {
+	Name string
+	Value interface{}
+}
+
+// Iterates across all key/value pairs of a JSON object. Called inside a
+// json.Object scope.
+func json_pairs_v1(ctx *EngineContext, scope *Scope, ins *tp.Instruction, args []interface{}) (returnValue interface{}) {
+	// types should already have been checked by the Tritium compiler
+	jsonObject := scope.Value.(map[string]interface{})
+	for key, val := range jsonObject {
+		pairScope := &Scope{Value: &Pair{Name: key, Value: val}}
+		for _, childInstr := range ins.Children {
+			ctx.RunInstruction(pairScope, childInstr)
+		}
+		jsonObject[pairScope.Value.(Pair).Name] = pairScope.Value.(Pair).Value // Updating in place?! Be careful here!
+	}
+	returnValue = ""
+	return
+}
