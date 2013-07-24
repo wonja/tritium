@@ -1279,11 +1279,8 @@ func json_object_v1(ctx *EngineContext, scope *Scope, ins *tp.Instruction, args 
 	// check the type
 	switch scope.Value.(type) {
 	case map[string]interface{}:
-		// if it's an object, cast it and run the supplied block on it
-		jsonObject := scope.Value.(map[string]interface{})
-		newScope := &Scope{Value: jsonObject}
 		for _, childInstr := range ins.Children {
-			ctx.RunInstruction(newScope, childInstr)
+			ctx.RunInstruction(scope, childInstr)
 		}
 		returnValue = scope.Value
 	default:
@@ -1310,7 +1307,7 @@ func json_pairs_v1(ctx *EngineContext, scope *Scope, ins *tp.Instruction, args [
 		for _, childInstr := range ins.Children {
 			ctx.RunInstruction(pairScope, childInstr)
 		}
-		jsonObject[pairScope.Value.(Pair).Name] = pairScope.Value.(Pair).Value // Updating in place?! Be careful here!
+		jsonObject[pairScope.Value.(*Pair).Name] = pairScope.Value.(*Pair).Value // Updating in place?! Be careful here!
 	}
 	returnValue = ""
 	return
@@ -1318,22 +1315,24 @@ func json_pairs_v1(ctx *EngineContext, scope *Scope, ins *tp.Instruction, args [
 
 // Accesses the name of a json.Object.Pair
 func json_pair_name_v1(ctx *EngineContext, scope *Scope, ins *tp.Instruction, args []interface{}) (returnValue interface{}) {
-	jsonPair := scope.Value.(Pair)
+	jsonPair := scope.Value.(*Pair)
 	nameScope := &Scope{Value: jsonPair.Name}
 	for _, childInstr := range ins.Children {
 		ctx.RunInstruction(nameScope, childInstr)
 	}
+	jsonPair.Name = nameScope.Value.(string)
 	returnValue = nameScope.Value
 	return
 }
 
 // Accesses the value of a json.Object.Pair
 func json_pair_value_v1(ctx *EngineContext, scope *Scope, ins *tp.Instruction, args []interface{}) (returnValue interface{}) {
-	jsonPair := scope.Value.(Pair)
+	jsonPair := scope.Value.(*Pair)
 	valueScope := &Scope{Value: jsonPair.Value}
 	for _, childInstr := range ins.Children {
 		ctx.RunInstruction(valueScope, childInstr)
 	}
+	jsonPair.Value = valueScope.Value
 	returnValue = valueScope.Value
 	return
 }
@@ -1343,11 +1342,8 @@ func json_array_v1(ctx *EngineContext, scope *Scope, ins *tp.Instruction, args [
 	// check the type
 	switch scope.Value.(type) {
 	case []interface{}:
-		// if it's an array, cast it and run the supplied block on it
-		jsonArray := scope.Value.([]interface{})
-		newScope := &Scope{Value: jsonArray}
 		for _, childInstr := range ins.Children {
-			ctx.RunInstruction(newScope, childInstr)
+			ctx.RunInstruction(scope, childInstr)
 		}
 		returnValue = scope.Value
 	default:
@@ -1377,11 +1373,8 @@ func json_string_v1(ctx *EngineContext, scope *Scope, ins *tp.Instruction, args 
 	// check the type
 	switch scope.Value.(type) {
 	case string:
-		// if it's a string, cast it and run the supplied block on it
-		jsonString := scope.Value.(string)
-		newScope := &Scope{Value: jsonString}
 		for _, childInstr := range ins.Children {
-			ctx.RunInstruction(newScope, childInstr)
+			ctx.RunInstruction(scope, childInstr)
 		}
 		returnValue = scope.Value
 	default:
@@ -1402,11 +1395,12 @@ func json_number_v1(ctx *EngineContext, scope *Scope, ins *tp.Instruction, args 
 		for _, childInstr := range ins.Children {
 			ctx.RunInstruction(newScope, childInstr)
 		}
-		retFloat, err := strconv.ParseFloat(scope.Value.(string), 64)
+		retFloat, err := strconv.ParseFloat(newScope.Value.(string), 64)
 		if err != nil {
 			ctx.Debugger.LogErrorMessage(ctx.MessagePath, "unable to encode JSON number: %s", err.Error())
 			returnValue = nil
 		} else {
+			scope.Value = retFloat
 			returnValue = retFloat
 		}
 	default:
@@ -1435,8 +1429,10 @@ func json_boolean_v1(ctx *EngineContext, scope *Scope, ins *tp.Instruction, args
 		}
 		result := newScope.Value.(string)
 		if result == "true" {
+			scope.Value = true
 			returnValue = true
 		} else if result == "false" {
+			scope.Value = false
 			returnValue = false
 		} else {
 			ctx.Debugger.LogErrorMessage(ctx.MessagePath, "unable to encode JSON boolean: %s", result)
@@ -1460,6 +1456,7 @@ func json_null_v1(ctx *EngineContext, scope *Scope, ins *tp.Instruction, args []
 		}
 		result := newScope.Value.(string)
 		if result == "null" {
+			scope.Value = nil
 			returnValue = nil
 		} else {
 			ctx.Debugger.LogErrorMessage(ctx.MessagePath, "unable to encode JSON null: %s", result)

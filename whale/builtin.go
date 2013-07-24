@@ -105,6 +105,19 @@ func init() {
 
 	builtInFunctions["tritium.parse_headers_v1"] = parse_headers_v1
 	builtInFunctions["tritium.header_comp_v1.Text"] = header_comp_v1_Text
+
+	// new native json stuff
+	builtInFunctions["tritium.json_v1"] = json_v1
+	builtInFunctions["tritium.json_object_v1"] = json_object_v1
+	builtInFunctions["tritium.json_pairs_v1"] = json_pairs_v1
+	builtInFunctions["tritium.json_pair_name_v1"] = json_pair_name_v1
+	builtInFunctions["tritium.json_pair_value_v1"] = json_pair_value_v1
+	builtInFunctions["tritium.json_array_v1"] = json_array_v1
+	builtInFunctions["tritium.json_values_v1"] = json_values_v1
+	builtInFunctions["tritium.json_string_v1"] = json_string_v1
+	builtInFunctions["tritium.json_number_v1"] = json_number_v1
+	builtInFunctions["tritium.json_boolean_v1"] = json_boolean_v1
+	builtInFunctions["tritium.json_null_v1"] = json_null_v1
 }
 
 func LookupBuiltIn(name string) builtInFunc {
