@@ -1289,7 +1289,6 @@ func json_object_v1(ctx *EngineContext, scope *Scope, ins *tp.Instruction, args 
 	default:
 		// do nothing if it isn't an object
 		returnValue = ""
-		return
 	}
 	return
 }
@@ -1354,14 +1353,13 @@ func json_array_v1(ctx *EngineContext, scope *Scope, ins *tp.Instruction, args [
 	default:
 		// do nothing if it isn't an array
 		returnValue = ""
-		return
 	}
 	return
 }
 
 // Iterates over all elements in a JSON array. Called inside of a
 // json.Array scope.
-func json_elements_v1(ctx *EngineContext, scope *Scope, ins *tp.Instruction, args []interface{}) (returnValue interface{}) {
+func json_values_v1(ctx *EngineContext, scope *Scope, ins *tp.Instruction, args []interface{}) (returnValue interface{}) {
 	jsonArray := scope.Value.([]interface{})
 	for i, val := range jsonArray {
 		elemScope := &Scope{Value: val}
@@ -1371,5 +1369,82 @@ func json_elements_v1(ctx *EngineContext, scope *Scope, ins *tp.Instruction, arg
 		jsonArray[i] = elemScope.Value
 	}
 	returnValue = ""
+	return
+}
+
+// Attempts to select/cast a JSON scope to a string. Does nothing if it fails.
+func json_string_v1(ctx *EngineContext, scope *Scope, ins *tp.Instruction, args []interface{}) (returnValue interface{}) {
+	// check the type
+	switch scope.Value.(type) {
+	case string:
+		// if it's a string, cast it and run the supplied block on it
+		jsonString := scope.Value.(string)
+		newScope := &Scope{Value: jsonString}
+		for _, childInstr := range ins.Children {
+			ctx.RunInstruction(newScope, childInstr)
+		}
+		returnValue = scope.Value
+	default:
+		// do nothing if it isn't a string
+		returnValue = ""
+	}
+	return
+}
+
+// Attempts to select/cast a JSON scope to a number. Does nothing if it fails.
+func json_number_v1(ctx *EngineContext, scope *Scope, ins *tp.Instruction, args []interface{}) (returnValue interface{}) {
+	// check the type
+	switch scope.Value.(type) {
+	case float64:
+		// if it's a number, cast it and run the supplied block on it
+		jsonNumber := strconv.FormatFloat(scope.Value.(float64), 'f', -1, 64)
+		newScope := &Scope{Value: jsonNumber}
+		for _, childInstr := range ins.Children {
+			ctx.RunInstruction(newScope, childInstr)
+		}
+		retFloat, err := strconv.ParseFloat(scope.Value.(string), 64)
+		if err != nil {
+			ctx.Debugger.LogErrorMessage(ctx.MessagePath, "unable to encode JSON number: %s", err.Error())
+			returnValue = nil
+		} else {
+			returnValue = retFloat
+		}
+	default:
+		// do nothing if it isn't a number
+		returnValue = ""
+	}
+	return
+}
+
+// Attempts to select/cast a JSON scope to a boolean. Does nothing if it fails.
+func json_boolean_v1(ctx *EngineContext, scope *Scope, ins *tp.Instruction, args []interface{}) (returnValue interface{}) {
+	// check the type
+	switch scope.Value.(type) {
+	case bool:
+		// if it's a boolean, cast it and run the supplied block on it
+		theBool := scope.Value.(bool)
+		var jsonBoolean string
+		if theBool {
+			jsonBoolean = "true"
+		} else {
+			jsonBoolean = "false"
+		}
+		newScope := &Scope{Value: jsonBoolean}
+		for _, childInstr := range ins.Children {
+			ctx.RunInstruction(newScope, childInstr)
+		}
+		result := newScope.Value.(string)
+		if result == "true" {
+			returnValue = true
+		} else if result == "false" {
+			returnValue = false
+		} else {
+			ctx.Debugger.LogErrorMessage(ctx.MessagePath, "unable to encode JSON boolean: %s", result)
+			returnValue = nil
+		}
+	default:
+		// do nothing if it isn't a boolean
+		returnValue = ""
+	}
 	return
 }
