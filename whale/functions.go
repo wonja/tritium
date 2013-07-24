@@ -1448,3 +1448,26 @@ func json_boolean_v1(ctx *EngineContext, scope *Scope, ins *tp.Instruction, args
 	}
 	return
 }
+
+// Attempts to select/cast a JSON scope to null. Does nothing if it fails.
+func json_null_v1(ctx *EngineContext, scope *Scope, ins *tp.Instruction, args []interface{}) (returnValue interface{}) {
+	// check the type
+	if scope.Value == nil {
+		jsonNull := "null"
+		newScope := &Scope{Value: jsonNull}
+		for _, childInstr := range ins.Children {
+			ctx.RunInstruction(newScope, childInstr)
+		}
+		result := newScope.Value.(string)
+		if result == "null" {
+			returnValue = nil
+		} else {
+			ctx.Debugger.LogErrorMessage(ctx.MessagePath, "unable to encode JSON null: %s", result)
+			returnValue = nil
+		}
+	} else {
+		// do nothing if it isn't null
+		returnValue = ""
+	}
+	return
+}
