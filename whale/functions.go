@@ -1253,6 +1253,17 @@ func header_comp_v1_Text(ctx *EngineContext, scope *Scope, ins *tp.Instruction, 
 // Native JSON scope functions.
 ///////////////////////////////
 
+// Type for representing values that have been removed (so the caller knows
+// that a value should be removed from its container).
+type Removed struct {
+}
+
+func json_remove_v1(ctx *EngineContext, scope *Scope, ins *tp.Instruction, args []interface{}) (returnValue interface{}) {
+	removedThing := &Removed{}
+	scope.Value = removedThing
+	return removedThing
+}
+
 // Parses a text scope that contains JSON, opens a JSON scope (as a native Go
 // data structure), runs functions on that scope, and serializes it when done.
 func json_v1(ctx *EngineContext, scope *Scope, ins *tp.Instruction, args []interface{}) (returnValue interface{}) {
