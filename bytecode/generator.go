@@ -148,3 +148,10 @@ func (g *Generator) generateFunction(f *tp.Function) {
 	g.emitValue(word(0), 3)
 }
 
+func (g *Generator) generateLocal(ins *tp.Instruction) {
+	// just store the name for now
+	g.emitOpcode(LOCAL)
+	g.emitValue(word(len(g.stringData)), 3)
+	theString := ins.GetValue()
+	g.accumulateString(theString)
+}
