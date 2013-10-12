@@ -1,9 +1,9 @@
 package bytecode
 
 import (
-  pb "code.google.com/p/goprotobuf/proto"
-
+  // "code.google.com/p/goprotobuf/proto"
   tp "tritium/proto"
+  "tritium/constants"
 )
 
 const (
@@ -12,8 +12,12 @@ const (
 	LOAD_POS
 	LOCAL
 	SAVE_CTX
+	JUMP
 	CALL
+	YIELD
+	UNYIELD
 	RETURN
+	HALT
 )
 
 const (
@@ -23,51 +27,35 @@ const (
 	AFTER
 )
 
-var funcOffsets    []int // maps function ID to offset in bytecode
-var stringData     []byte
-var output         []byte
-var entryPoints    []int
-
 type Generator struct {
-	transformers  []*tp.Transformer
-	functions     []*tp.Function
+	Script        *tp.Instruction
+	Functions     []*tp.Function
 
-	funcOffsets   []int
-	scriptOffsets []int
+	FuncOffsets   []int
 	Code          []byte
-	entryPoints   []byte
-	stringData    []byte
+	StringData    []byte
 }
 
-func (g *Generator) Generate(slug *tp.Slug) {
-	g.transformers := slug.GetTransformers()
-	g.functions    := transformers[0].GetPkg().GetFunctions()
+func (g *Generator) Generate() {
 
 	g.emitBytes([]byte("Moovweb Bytecode")) // signature
-	g.emitBytes(make([]byte, 20))           // space for entry points
+	g.emitBytes(make([]byte, 8))           // space for segment pointers
 
-	g.generateFunctions()
-
-	g.entryPoints = make([]int, 5)
-	for i, transformer := range g.transformers {
-		g.scriptOffsets = make([]int, 0)
-		g.entryPoints[i] = len(g.Code)
-		g.generateTransformer(transformer)
-	}
-
-	entryPoints[4] = len(g.Code)
-	g.emitBytes(stringData)
-
-	for i, ep := range g.entryPoints {
-		g.emitValueInto(16+i*4, ep, 4)
-	}
-}
-
-func (g *Generator) generateFunctions() {
-	for _, f := range g.functions {
-		g.funcOffsets = append(g.funcOffsets, len(g.Code))
+	for _, f := range g.Functions {
+		g.FuncOffsets = append(g.FuncOffsets, len(g.Code))
 		g.generateFunction(f)
 	}
+	println("saving code segment pointer:", word(len(g.Code)))
+	g.emitValueInto(16, word(len(g.Code)), 4)
+
+	for _, toplevel := range g.Script.Children {
+		g.generateInstruction(toplevel)
+	}
+
+
+	println("saving string segment pointer:", word(len(g.Code)))
+	g.emitValueInto(20, word(len(g.Code)), 4)
+	g.emitBytes(g.StringData)
 }
 
 func (g *Generator) generateInstruction(ins *tp.Instruction) {
@@ -89,14 +77,14 @@ func (g *Generator) generateInstruction(ins *tp.Instruction) {
 	}
 }
 
-func g.generateText(ins *tp.Instruction) {
+func (g *Generator) generateText(ins *tp.Instruction) {
 	g.emitOpcode(LOAD_STRING)
-	g.emitValue(word(len(g.stringData)), 3)
+	g.emitValue(word(len(g.StringData)), 3)
 	theString := ins.GetValue()
 	g.accumulateString(theString)
 }
 
-func generatePos(ins *tp.Instruction) {
+func (g *Generator) generatePos(ins *tp.Instruction) {
 	g.emitOpcode(LOAD_POS)
 	switch ins.GetValue() {
 	case "top":
@@ -112,17 +100,23 @@ func generatePos(ins *tp.Instruction) {
 	}
 }
 
-func g.generateCall(ins *tp.Instruction) {
+func (g *Generator) generateCall(ins *tp.Instruction) {
 	g.generateBlock(ins)
 	for _, arg := range ins.Arguments {
 		g.generateInstruction(arg)
 	}
 	id := int(ins.GetFunctionId())
-	g.emitOpcode(CALL)
-	g.emitValue(word(g.funcOffsets[id]), 3)
+	f := g.Functions[id]
+	if f.GetBuiltIn() {
+		g.emitOpcode(YIELD)
+		g.emitValue(word(0), 3)
+	} else {
+		g.emitOpcode(CALL)
+		g.emitValue(word(g.FuncOffsets[id]), 3)
+	}
 }
 
-func g.generateBlock(ins *tp.Instruction) {
+func (g *Generator) generateBlock(ins *tp.Instruction) {
 	beforeBlock := len(g.Code) + 4
 	insideBlock := len(g.Code) + 8
 	g.emitOpcode(LOAD_PTR)
@@ -135,7 +129,7 @@ func g.generateBlock(ins *tp.Instruction) {
 		for _, child := range ins.Children {
 			g.generateInstruction(child)
 		}
-		g.emitOpcode(RETURN)
+		g.emitOpcode(UNYIELD)
 		g.emitValue(word(0), 3) // let's just keep it 32 bits per instruction
 		// jump over the block
 		g.emitValueInto(beforeBlock+1, word(len(g.Code)), 3)
@@ -143,7 +137,15 @@ func g.generateBlock(ins *tp.Instruction) {
 }
 
 func (g *Generator) generateFunction(f *tp.Function) {
-	g.generateInstruction(f.GetInstruction())
+	if f.GetBuiltIn() {
+		return
+	}
+	g.emitOpcode(LOAD_STRING)
+	g.emitValue(word(len(g.StringData)), 3)
+	g.accumulateString("header for " + f.GetName()) // load the function's name, for now
+	for _, bodyIns := range f.GetInstruction().Children {
+		g.generateInstruction(bodyIns)
+	}
 	g.emitOpcode(RETURN)
 	g.emitValue(word(0), 3)
 }
@@ -151,7 +153,11 @@ func (g *Generator) generateFunction(f *tp.Function) {
 func (g *Generator) generateLocal(ins *tp.Instruction) {
 	// just store the name for now
 	g.emitOpcode(LOCAL)
-	g.emitValue(word(len(g.stringData)), 3)
+	g.emitValue(word(len(g.StringData)), 3)
 	theString := ins.GetValue()
 	g.accumulateString(theString)
+}
+
+func (g *Generator) generateImport(ins *tp.Instruction) {
+
 }
